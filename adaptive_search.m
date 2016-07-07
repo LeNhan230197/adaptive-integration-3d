@@ -95,20 +95,23 @@ function ret = f_cached_periodic(x, y, z, val, MODE)
 	ret = f_cached(x, y, z, val, MODE);
 end
 
-% Function to generate meshgrid of coordinates 
-function [X, Y] = coord_meshgrid(xmin, xmax, ymin, ymax, mesh_size)
+% Function to generate meshgrid based on mesh_size and starting values
+function [X, Y, Z] = coord_meshgrid(xmin, xmax, ymin, ymax, zmin, zmax, mesh_size)
 
-    % Update in V0.4: Matlab doesn't support underscore _, it is replaced
+    % Update in V0.1: Matlab doesn't support underscore _, it is replaced
     % by t to denote temporary
 	tx = linspace(xmin, xmax, mesh_size(1));
 	ty = linspace(ymin, ymax, mesh_size(2));
-	[X, Y] = meshgrid(tx, ty);
-end
+    tz = linspace(zmin, zmax, mesh_size(3));
+    
+	[X, Y, Z] = meshgrid(tx, ty, tz);
+end % coord_meshgrid
+
 
 % Function to convert meshgrid of coordinates to cellgrid of coordinates
-function coord_cellgrid = mesh2cell(X, Y)
-	mapper = @(x, y) [x y]; % Mapper function to convert coords to vector 
-	coord_cellgrid = arrayfun(mapper, X, Y, 'un', 0); % Tested on GNU Octave
+function coord_cellgrid = mesh2cell(X, Y, Z)
+	mapper = @(x, y, z) [x y z]; % Mapper function to convert coords to vector 
+	coord_cellgrid = arrayfun(mapper, X, Y, Z, 'un', 0); 
 end
 
 % Function to convert cellgrid of coordinates to meshgrid of coordinates
