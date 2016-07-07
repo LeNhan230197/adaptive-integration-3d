@@ -115,24 +115,27 @@ function coord_cellgrid = mesh2cell(X, Y, Z)
 end
 
 % Function to convert cellgrid of coordinates to meshgrid of coordinates
-function [X, Y] = cell2mesh(coord_cellgrid)
-	mesh_size = size(coord_cellgrid); % Get the size of mesh
+function [X, Y, Z] = cell2mesh(coord_cellgrid)
+	t_mesh_size = size(coord_cellgrid); % Get the size of mesh
 	
 	% Generate index mesh to retrieve data from cellgrid
     % Update in V0.4: Matlab doesn't support underscore _, it is replaced
     % by t to denote temporary    
-	ta = 1 : mesh_size(1); 
-	tb = 1 : mesh_size(2); 
-	[tA, tB] = meshgrid(ta, tb);
+	ta = 1 : t_mesh_size(1); 
+	tb = 1 : t_mesh_size(2); 
+    tc = 1 : t_mesh_size(3);
+	[tA, tB, tC] = meshgrid(ta, tb, tc);
 	
 	% Mapper function to retrieve x and y respectively
-	inverse_mapper_x = @(a, b) coord_cellgrid{a, b}(1); % Inverse map for X
-	inverse_mapper_y = @(a, b) coord_cellgrid{a, b}(2); % Inverse map for Y
+	inverse_mapper_x = @(a, b, c) coord_cellgrid{a, b, c}(1); % Inverse map for X
+	inverse_mapper_y = @(a, b, c) coord_cellgrid{a, b, c}(2); % Inverse map for Y
+	inverse_mapper_z = @(a, b, c) coord_cellgrid{a, b, c}(3); % inverse map for Z
 	
-	% Apply mapper function to collectively retrieve X and Y from cellgrid
-	X = arrayfun(inverse_mapper_x, tB, tA); % _B and _A has to be in this order
-	Y = arrayfun(inverse_mapper_y, tB, tA); % to correctly retrieve X and Y	
-end
+    % Apply mapper function to collectively retrieve X and Y from cellgrid
+	X = permute(arrayfun(inverse_mapper_x, tA, tB, tC),[2,1,3]); 
+	Y = permute(arrayfun(inverse_mapper_y, tA, tB, tC),[2,1,3]); 	
+    Z = permute(arrayfun(inverse_mapper_z, tA, tB, tC),[2,1,3]); 
+end % cell2mesh
 
 % Checker function, implement four points checking algorithm here
 % return true if finds a special region of interest and false otherwise
