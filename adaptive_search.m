@@ -95,8 +95,44 @@ function ret = f_cached_periodic(x, y, z, val, MODE)
 	ret = f_cached(x, y, z, val, MODE);
 end
 
+% Function to generate meshgrid of coordinates 
+function [X, Y] = coord_meshgrid(xmin, xmax, ymin, ymax, mesh_size)
+
+    % Update in V0.4: Matlab doesn't support underscore _, it is replaced
+    % by t to denote temporary
+	tx = linspace(xmin, xmax, mesh_size(1));
+	ty = linspace(ymin, ymax, mesh_size(2));
+	[X, Y] = meshgrid(tx, ty);
+end
+
+% Function to convert meshgrid of coordinates to cellgrid of coordinates
+function coord_cellgrid = mesh2cell(X, Y)
+	mapper = @(x, y) [x y]; % Mapper function to convert coords to vector 
+	coord_cellgrid = arrayfun(mapper, X, Y, 'un', 0); % Tested on GNU Octave
+end
+
+% Function to convert cellgrid of coordinates to meshgrid of coordinates
+function [X, Y] = cell2mesh(coord_cellgrid)
+	mesh_size = size(coord_cellgrid); % Get the size of mesh
+	
+	% Generate index mesh to retrieve data from cellgrid
+    % Update in V0.4: Matlab doesn't support underscore _, it is replaced
+    % by t to denote temporary    
+	ta = 1 : mesh_size(1); 
+	tb = 1 : mesh_size(2); 
+	[tA, tB] = meshgrid(ta, tb);
+	
+	% Mapper function to retrieve x and y respectively
+	inverse_mapper_x = @(a, b) coord_cellgrid{a, b}(1); % Inverse map for X
+	inverse_mapper_y = @(a, b) coord_cellgrid{a, b}(2); % Inverse map for Y
+	
+	% Apply mapper function to collectively retrieve X and Y from cellgrid
+	X = arrayfun(inverse_mapper_x, tB, tA); % _B and _A has to be in this order
+	Y = arrayfun(inverse_mapper_y, tB, tA); % to correctly retrieve X and Y	
+end
+
 % Function to generate meshgrid based on mesh_size and starting values
-function [X, Y, Z] = coord_meshgrid(xmin, xmax, ymin, ymax, zmin, zmax, mesh_size)
+function [X, Y, Z] = coord_meshgrid3D(xmin, xmax, ymin, ymax, zmin, zmax, mesh_size)
 
     % Update in V0.1: Matlab doesn't support underscore _, it is replaced
     % by t to denote temporary
@@ -109,13 +145,14 @@ end % coord_meshgrid
 
 
 % Function to convert meshgrid of coordinates to cellgrid of coordinates
-function coord_cellgrid = mesh2cell(X, Y, Z)
+function coord_cellgrid = mesh2cell3D(X, Y, Z)
 	mapper = @(x, y, z) [x y z]; % Mapper function to convert coords to vector 
 	coord_cellgrid = arrayfun(mapper, X, Y, Z, 'un', 0); 
 end
 
+
 % Function to convert cellgrid of coordinates to meshgrid of coordinates
-function [X, Y, Z] = cell2mesh(coord_cellgrid)
+function [X, Y, Z] = cell2mesh3D(coord_cellgrid)
 	t_mesh_size = size(coord_cellgrid); % Get the size of mesh
 	
 	% Generate index mesh to retrieve data from cellgrid
@@ -136,6 +173,8 @@ function [X, Y, Z] = cell2mesh(coord_cellgrid)
 	Y = permute(arrayfun(inverse_mapper_y, tA, tB, tC),[2,1,3]); 	
     Z = permute(arrayfun(inverse_mapper_z, tA, tB, tC),[2,1,3]); 
 end % cell2mesh
+
+
 
 % Checker function, implement four points checking algorithm here
 % return true if finds a special region of interest and false otherwise
@@ -166,8 +205,6 @@ end
 % It incorporates the use of NaN to save the amount of calculation
 % Checker function remains the same
 % init_weight is used for weight calculation
-% Update in V0.4: Matlab doesn't support underscore _, it is replaced
-% by t to denote temporary  
 function ret = t_adaptive_search(fun, coord_cellgrid, MAX_RECURSION)
 
 	% flag:	false if checker has found a special region
