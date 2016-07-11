@@ -1,12 +1,12 @@
 % Usage:
-% adaptive_search(target_fun, xmin, xmax, ymax, mesh_size, max_recursion)
+% adaptive_search(target_fun, xmin, xmax, ymax, zmin, zmax, mesh_size, max_recursion)
 % returns: keys (nx2), vals(nx1)
 
 % Define a wrapper function which Matlab requires
-function [ret_keys, ret_vals] = adaptive_search(f, xmin, xmax, ymin, ymax, mesh_size, max_recursion)
+function [ret_keys, ret_vals] = adaptive_search(f, xmin, xmax, ymin, ymax, zmin, zmax, mesh_size, max_recursion)
 
 % Cached version of target function (a variation from adaptive V0.1 script)
-function ret = f_cached(x, y, val, MODE)
+function ret = f_cached(x, y, z, val, MODE)
 	% Specify cache look up precision
 	PRECISION = 6;
 	
@@ -18,7 +18,7 @@ function ret = f_cached(x, y, val, MODE)
 	
 	% Generate lookup key in cache
 	% Automatic rounding is built-in with num2str function
-	cache_key = num2str([x y], PRECISION);
+	cache_key = num2str([x y z], PRECISION);
 	
 	% Mode: 0 -> CALCULATE MODE
 	% Used when first calculating all points
@@ -28,7 +28,7 @@ function ret = f_cached(x, y, val, MODE)
         %     cache.(cache_key) -> cache(cache_key)
         if cache.isKey(cache_key) == 0
 			% Calculate and store if key doesn't exist
-			fval = f(x, y);
+			fval = f(x, y, z);
 			cache(cache_key) = fval;
 			% fprintf('->Cache not used\n'); % DEBUG
         else
@@ -67,12 +67,13 @@ end
 
 % Cached and periodic version of target function
 % Included Mode to be consistent with f_cached
-function ret = f_cached_periodic(x, y, val, MODE)
+function ret = f_cached_periodic(x, y, z, val, MODE)
 	% Constants
 	XPERIOD = 1; % Periodity in x 
 	YPERIOD = 1; % Periodity in y
+	ZPERIOD = 1; % Periodity in z
 	
-	% Periodic condition
+    % Periodic condition
 	if x > XPERIOD
 		x = x - XPERIOD;
 	elseif x < 0
@@ -83,9 +84,15 @@ function ret = f_cached_periodic(x, y, val, MODE)
 		y = y - YPERIOD;
 	elseif y < 0
 		y = y + YPERIOD;
+    end
+	
+    if z > ZPERIOD
+		z = z - YPERIOD;
+	elseif z < 0
+		z = z + YPERIOD;
 	end
 	
-	ret = f_cached(x, y, val, MODE);
+	ret = f_cached(x, y, z, val, MODE);
 end
 
 % Function to generate meshgrid of coordinates 
@@ -124,6 +131,50 @@ function [X, Y] = cell2mesh(coord_cellgrid)
 	Y = arrayfun(inverse_mapper_y, tB, tA); % to correctly retrieve X and Y	
 end
 
+% Function to generate meshgrid based on mesh_size and starting values
+function [X, Y, Z] = coord_meshgrid3D(xmin, xmax, ymin, ymax, zmin, zmax, mesh_size)
+
+    % Update in V0.1: Matlab doesn't support underscore _, it is replaced
+    % by t to denote temporary
+	tx = linspace(xmin, xmax, mesh_size(1));
+	ty = linspace(ymin, ymax, mesh_size(2));
+    tz = linspace(zmin, zmax, mesh_size(3));
+    
+	[X, Y, Z] = meshgrid(tx, ty, tz);
+end % coord_meshgrid
+
+
+% Function to convert meshgrid of coordinates to cellgrid of coordinates
+function coord_cellgrid = mesh2cell3D(X, Y, Z)
+	mapper = @(x, y, z) [x y z]; % Mapper function to convert coords to vector 
+	coord_cellgrid = arrayfun(mapper, X, Y, Z, 'un', 0); 
+end
+
+
+% Function to convert cellgrid of coordinates to meshgrid of coordinates
+function [X, Y, Z] = cell2mesh3D(coord_cellgrid)
+	t_mesh_size = size(coord_cellgrid); % Get the size of mesh
+	
+	% Generate index mesh to retrieve data from cellgrid
+    % Update in V0.4: Matlab doesn't support underscore _, it is replaced
+    % by t to denote temporary    
+	ta = 1 : t_mesh_size(1); 
+	tb = 1 : t_mesh_size(2); 
+    tc = 1 : t_mesh_size(3);
+	[tA, tB, tC] = meshgrid(ta, tb, tc);
+	
+	% Mapper function to retrieve x and y respectively
+	inverse_mapper_x = @(a, b, c) coord_cellgrid{a, b, c}(1); % Inverse map for X
+	inverse_mapper_y = @(a, b, c) coord_cellgrid{a, b, c}(2); % Inverse map for Y
+	inverse_mapper_z = @(a, b, c) coord_cellgrid{a, b, c}(3); % inverse map for Z
+	
+    % Apply mapper function to collectively retrieve X and Y from cellgrid
+	X = permute(arrayfun(inverse_mapper_x, tA, tB, tC),[2,1,3]); 
+	Y = permute(arrayfun(inverse_mapper_y, tA, tB, tC),[2,1,3]); 	
+    Z = permute(arrayfun(inverse_mapper_z, tA, tB, tC),[2,1,3]); 
+end % cell2mesh
+
+
 % Checker function, implement four points checking algorithm here
 % return true if finds a special region of interest and false otherwise
 % Important: in V0.2 the checker function also handles NaN. 
@@ -153,9 +204,7 @@ end
 % It incorporates the use of NaN to save the amount of calculation
 % Checker function remains the same
 % init_weight is used for weight calculation
-% Update in V0.4: Matlab doesn't support underscore _, it is replaced
-% by t to denote temporary  
-function ret = t_adaptive_search(fun, coord_cellgrid, MAX_RECURSION)
+function ret = t_adaptive_search_2D(fun, coord_cellgrid, MAX_RECURSION)
 
 	% flag:	false if checker has found a special region
 	%		true if all points pass the checker function
