@@ -3,7 +3,7 @@
 % returns: keys (nx2), vals(nx1)
 
 % Define a wrapper function which Matlab requires
-function [ret_keys, ret_vals] = adaptive_search(f, xmin, xmax, ymin, ymax, zmin, zmax, mesh_size, max_recursion)
+function [ret_keys, ret_vals] = adaptive_search_3d(f, xmin, xmax, ymin, ymax, zmin, zmax, mesh_size, max_recursion)
 
 % Cached version of target function (a variation from adaptive V0.1 script)
 function ret = f_cached(x, y, z, val, MODE)
@@ -219,11 +219,11 @@ function ret = t_adaptive_search_2D(fun, coord_cellgrid, MAX_RECURSION)
 	t_mesh_size = size(coord_cellgrid);
 	
 	% Convert cellgrid to meshgrid
-	[X, Y] = cell2mesh(coord_cellgrid);
+	[tX, tY] = cell2mesh(coord_cellgrid);
 	
 	% Get function values on meshgrid by retrieve them from the cache
 	% Important: return value will be NaN if (x y) don't exist in cache
-	fvals = arrayfun(@(x, y) fun(x, y, 0, 1), X, Y);	
+	fvals = arrayfun(@(x, y) fun(x, y, 0, 1), tX, tY);	
 
 	% A counter used to keep track of the index of the box of interests
 	counter = 1;
@@ -323,11 +323,11 @@ function ret = t_adaptive_search_2D(fun, coord_cellgrid, MAX_RECURSION)
 			mesh_size_new = size(new_coord_cellgrid);
 
 			% Convert cellgrid to meshgrid
-			[X, Y] = cell2mesh(new_coord_cellgrid);
+			[tX, tY] = cell2mesh(new_coord_cellgrid);
 
 			% Get function values on meshgrid by retrieve them from the cache
 			% Important: return value will be NaN if (x y) don't exist in cache
-			fvals = arrayfun(@(x, y) fun(x, y, 0, 1), X, Y);	
+			fvals = arrayfun(@(x, y) fun(x, y, 0, 1), tX, tY);	
 
 			for m = 1 : mesh_size_new(1) - 1
 				for j = 1 : mesh_size_new(2) - 1
@@ -396,8 +396,40 @@ function ret = t_adaptive_search_2D(fun, coord_cellgrid, MAX_RECURSION)
     end
 end
 
+xs = linspace(xmin, xmax, mesh_size(1));
+ys = linspace(ymin, ymax, mesh_size(2));
+zs = linspace(zmin, zmax, mesh_size(3));
+
+% 1 - Start to search along z axis for each surface using 2d search
+for i = range(length(zs))
+    z = zs(i);
+    new_size = [mesh_size(1), mesh_size(2)];
+    
+    % Call old fnction in 2d with recursion limit set to 2
+    [keys, vals] = adaptive_search(@(x, y) f(x, y, z), xmin, xmax, ymin, ymax, new_size, 2);
+    
+    % Save the keys in the cache
+    for j = range(keys)
+        f_cached(keys{j}(1), keys{j}(2), z, vals(j), 3); % Use Set mode
+    end
+end
+
+for i = range(length(zs))
+    z = zs(i);
+    new_size = [mesh_size(1), mesh_size(2)];
+    
+    % Call old fnction in 2d with recursion limit set to 2
+    [keys, vals] = adaptive_search(@(x, y) f(x, y, z), xmin, xmax, ymin, ymax, new_size, 2);
+    
+    % Save the keys in the cache
+    for j = range(keys)
+        f_cached(keys{j}(1), keys{j}(2), z, vals(j), 3); % Use Set mode
+    end
+end
+% 2 - Start to search along y axis for each surface using 2d search
+
 % 1 - Get coordinates meshgrid
-[X, Y] = coord_meshgrid(xmin, xmax, ymin, ymax, mesh_size);
+[X, Y, Z] = coord_meshgrid3D(xmin, xmax, ymin, ymax, zmin, zmax, mesh_size);
 
 % 2 - Save all function values on the mesh to the cache -> No need return
 arrayfun(@(x, y) f_cached(x, y, 0, 0), X, Y);
@@ -416,6 +448,7 @@ all_points_keys = all_points.keys();
 nkeys = length(all_points_keys);
 ret_keys = zeros(nkeys, 2);
 ret_vals = zeros(nkeys, 1);
+
 for i = 1: nkeys
     ret_keys(i, :) = str2num(all_points_keys{i});
     ret_vals(i) = all_points(all_points_keys{i});

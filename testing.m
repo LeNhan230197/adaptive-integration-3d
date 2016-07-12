@@ -55,4 +55,70 @@ function [X, Y, Z] = cell2mesh(coord_cellgrid)
     Z = permute(arrayfun(inverse_mapper_z, tA, tB, tC),[2,1,3]); 
 end % cell2mesh
 
+function ret = subcell(cell_3d, mode)
+    cell_size = size(subcell);
+    lx = cell_size(1);
+    ly = cell_size(2);
+    lz = cell_size(3);
+    if mode == 1 % first index fixed
+        subcells = cell(lx, 1);
+        for i = range(lx)
+            % generate a new cell array
+            new_cell = cell(ly, lz);
+            
+            for j = range(ly)
+                for k = range(lz)
+                    % copy elements to the new cell array
+                    new_cell{j, k} = cell_3d{i, j, k};
+                end
+            end
+            
+            % append the new cell array to the list of cell arrays
+            subcells{i} = new_cell;
+        end
+        
+        ret = subcells;
+    elseif mode == 2 % second index fixed
+        subcells = cell(ly, 1);
+        for i = range(ly)
+            % generate a new cell array
+            new_cell = cell(lz, lx);
+            
+            for j = range(lz)
+                for k = range(lx)
+                    % copy elements to the new cell array
+                    new_cell{j, k} = cell_3d{k, i, j};
+                end
+            end
+            
+            % append the new cell array to the list of cell arrays
+            subcells{i} = new_cell;
+        end
+        
+        ret = subcells;
+        
+    elseif mode == 3 % third index fixed
+        subcells = cell(lz, 1);
+        for i = range(lz)
+            % generate a new cell array
+            new_cell = cell(lx, ly);
+            
+            for j = range(lx)
+                for k = range(ly)
+                    % copy elements to the new cell array
+                    new_cell{j, k} = cell_3d{j, k, i};
+                end
+            end
+            
+            % append the new cell array to the list of cell arrays
+            subcells{i} = new_cell;
+        end
+        
+        ret = subcells;    
+    
+    else
+        fprintf('Invalid Mode');
+        ret = 0;
+    end
+    
 end % testing
