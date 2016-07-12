@@ -1,5 +1,5 @@
 % Initialization
-% clear all;
+clear all;
 
 xmin = 0;
 xmax = 1;
@@ -7,7 +7,7 @@ ymin = 0;
 ymax = 1;
 zmin = 0;
 zmax = 1;
-mesh_size = [10 10 10]; % Initial meshgrid size
+mesh_size = [5 5 5]; % Initial meshgrid size
 n_recursion_max = 2;
 
 % Start profiling
@@ -25,16 +25,33 @@ toc;
 profile viewer;
 profile off;
 
-% % Plotting
-% figure;
+% Plotting
+figure;
 % plot(keys(:, 1), keys(:, 2), 'r.');
-% 
-% figure;
-% scatter3(combined_data(:, 1), combined_data(:, 2), combined_data(:, 3), 'b.');
-% 
-% 
-% % A demo of integration: It can be made more precise.
-% unit_size = max(diff(keys(:, 1))) * max(diff(keys(:, 2)));
+scatter3(keys(:, 1), keys(:, 2), keys(:, 3), 'filled');
+
+% A less precise integration method
+
+unit_size = max(diff(keys(:, 1))) * max(diff(keys(:, 2))) * max(diff(keys(:, 3)));
+integral = 0;
+for i = 1 : length(vals)
+    key = keys(i, :);
+    val = vals(i);
+    
+    % Only worry about the surface as the edge and corner are too small a
+    % subset to worry at this stage
+    if key(1) == xmin || key(2) == ymin || key(1) == xmax || key(2) == ymax || key(3) == zmin || key(3) == zmax
+    	integral = integral + val * unit_size / 2;
+    else
+        integral = integral + val * unit_size;
+    end
+end
+
+display(integral);
+
+
+% % A demo of integration (2D): It can be made more precise.
+% unit_size = max(diff(keys(:, 1))) * max(diff(keys(:, 2))) * max(diff(keys(:, 3)));
 % 
 % integral = 0;
 % 

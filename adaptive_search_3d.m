@@ -263,7 +263,7 @@ end
 
 function ret = get_all_points()
     % The first two parameters are placeholders
-    ret = f_cached(0, 0, 0, 2);
+    ret = f_cached(0, 0, 0, 0, 2);
 end
 
 % Function used to do the adaptive search with important update for V0.2
@@ -287,7 +287,7 @@ function ret = t_adaptive_search_2D(fun, coord_cellgrid, MAX_RECURSION)
         for j = 1 : t_mesh_size(2)
             params = coord_cellgrid{i, j};
             % The point could have been calculated before, hence we use mode 0
-            fval = f_cached(params(1), params(2), params(3), 0, 0);
+            fval = fun(params(1), params(2), params(3), 0, 0);
             fvals(i, j) = fval;
         end
     end
@@ -319,14 +319,14 @@ function ret = t_adaptive_search_2D(fun, coord_cellgrid, MAX_RECURSION)
 			if checker(f1, f2, f3, f4) == true				
 				% Calculate and save the function value for x0 in cache
 				% No return is necessary
-				f_cached(x0(1), x0(2), x0(3), 0, 0);
+				fun(x0(1), x0(2), x0(3), 0, 0);
 				
 			% If no special region is identified, save the average value of the
 			% four courners as the value
 			else
 				fs = [f1, f2, f3, f4];
 				favg = mean(fs(~isnan(fs))); % This is to ensure no NaN
-				f_cached(x0(1), x0(2), x0(3), favg, 3);
+				fun(x0(1), x0(2), x0(3), favg, 3);
 			end
 			
 			% No matter what happens, always include the new boxes
@@ -386,7 +386,7 @@ function ret = t_adaptive_search_2D(fun, coord_cellgrid, MAX_RECURSION)
 					x = new_coord_cellgrid{i, j};
 					
 					% Many points should have already been calculated
-					fval = f_cached(x(1), x(2), x(3), 0, 1);
+					fval = fun(x(1), x(2), x(3), 0, 1);
 					
 					fvals(i, j) = fval;
 				end
@@ -426,14 +426,14 @@ function ret = t_adaptive_search_2D(fun, coord_cellgrid, MAX_RECURSION)
 						
 						% Calculate and save the function value for x0 in cache
 						% No return is necessary
-						f_cached(x0(1), x0(2), x0(3), 0, 0);
+						fun(x0(1), x0(2), x0(3), 0, 0);
 					
 						% If a region is not of interests, use the average value to represent
 						% the center point
 					else 
 						fs = [f1, f2, f3, f4];
 						favg = mean(fs(~isnan(fs))); % This is to ensure no NaN
-						f_cached(x0(1), x0(2), x0(3), favg, 3);
+						fun(x0(1), x0(2), x0(3), favg, 3);
 					end
 						
 						% Save the box of interests
@@ -462,56 +462,54 @@ end
 % ===========================================================================
 % Main algorithm starts here
 
-[X, Y, Z] = coord_meshgrid3D(xmin, xmax, ymin, ymax, zmin, zmax, mesh_size);
-xs = linspace(xmin, xmax, mesh_size(1));
-ys = linspace(ymin, ymax, mesh_size(2));
-zs = linspace(zmin, zmax, mesh_size(3));
+iter = 0;
+old_mesh_size = mesh_size;
 
-cell3d = mesh2cell3D(X, Y, Z);
-% 1 - Start to search along z axis for each surface using 2d search
-cell2ds = subcell(cell3d, 3);
+while iter < max_recursion
+    % 1 - Start to search along z axis for each surface using 2d search
+    [X, Y, Z] = coord_meshgrid3D(xmin, xmax, ymin, ymax, zmin, zmax, old_mesh_size);
+    cell3d = mesh2cell3D(X, Y, Z);
 
-for i = 1 : length(zs)
-    z = zs(i);
-    cell2d = cell2ds{i};
+    cell2ds = subcell(cell3d, 3);
+
+    for i = 1 : old_mesh_size(3)
+    % for i = 1 : 1
+        cell2d = cell2ds{i};
+
+        % Call old fnction in 2d with recursion limit set to 2
+        t_adaptive_search_2D(@f_cached_periodic, cell2d, 1);
+    end
+
     
-    % Call old fnction in 2d with recursion limit set to 2
-    t_adaptive_search_2D(@(x, y) f_cached(x, y, z, 0, 0), cell2d, 2);
-end
+    % 2 - Start to search along x axis for each surface using 2d search
+    % Note that the mesh size is now different since we have more points
+    % For more details refer to the write up
 
-% for i = range(length(zs))
-%     z = zs(i);
-%     new_size = [mesh_size(1), mesh_size(2)];
-%     
-%     % Call old fnction in 2d with recursion limit set to 2
-%     [keys, vals] = adaptive_search(@(x, y) f(x, y, z), xmin, xmax, ymin, ymax, new_size, 2);
-%     
-%     % Save the keys in the cache
-%     for j = range(keys)
-%         f_cached(keys{j}(1), keys{j}(2), z, vals(j), 3); % Use Set mode
-%     end
-% end
-% % 2 - Start to search along y axis for each surface using 2d search
-% 
-% % 1 - Get coordinates meshgrid
-% [X, Y, Z] = coord_meshgrid3D(xmin, xmax, ymin, ymax, zmin, zmax, mesh_size);
-% 
-% % 2 - Save all function values on the mesh to the cache -> No need return
-% arrayfun(@(x, y) f_cached(x, y, 0, 0), X, Y);
-% 
-% % 3 - Get coordinates cellgrid
-% coord_cellgrid = mesh2cell(X, Y);
-% 
-% % 4 - 5 Weight parts are removed
-% 
-% % 6 - Call inner function _adaptive_search
-% t_adaptive_search(@f_cached_periodic, coord_cellgrid, max_recursion);
-% 
+    new_mesh_size = [2 * old_mesh_size(1) - 1, old_mesh_size(2), old_mesh_size(3)];
+    [X, Y, Z] = coord_meshgrid3D(xmin, xmax, ymin, ymax, zmin, zmax, new_mesh_size);
+    cell3d = mesh2cell3D(X, Y, Z);
+
+    cell2ds = subcell(cell3d, 1);
+
+    for i = 1 : new_mesh_size(1)
+    % for i = 1 : 1
+        cell2d = cell2ds{i};
+
+        % Call old fnction in 2d with recursion limit set to 2
+        t_adaptive_search_2D(@f_cached_periodic, cell2d, 1);
+    end
+    
+    % 3 - Update iteration information
+    iter = iter + 1;
+    
+    % 4 - Update new mesh
+    old_mesh_size = [new_mesh_size(1), 2*new_mesh_size(2)-1, 2*new_mesh_size(3)-1];
+end
 
 all_points = get_all_points();
 all_points_keys = all_points.keys();
 nkeys = length(all_points_keys);
-ret_keys = zeros(nkeys, 2);
+ret_keys = zeros(nkeys, 3);
 ret_vals = zeros(nkeys, 1);
 
 for i = 1: nkeys
@@ -520,8 +518,8 @@ for i = 1: nkeys
 end
 
 temp = [ret_keys, ret_vals];
-temp = sortrows(temp, [1 2]);
-ret_keys = temp(:, 1:2);
-ret_vals = temp(:, 3);
+temp = sortrows(temp, [1 2 3]);
+ret_keys = temp(:, 1:3);
+ret_vals = temp(:, 4);
 
 end %end of adaptive search function
