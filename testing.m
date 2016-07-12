@@ -17,10 +17,11 @@ assert(isequal(X, nX));
 assert(isequal(Y, nY));
 assert(isequal(Z, nZ));
 
-function [X, Y, Z] = coord_meshgrid(xmin, xmax, ymin, ymax, zmin, zmax, mesh_size)
+d2cells = subcell(cells,1);
 
-    % Update in V0.1: Matlab doesn't support underscore _, it is replaced
-    % by t to denote temporary
+display(d2cells);
+
+function [X, Y, Z] = coord_meshgrid(xmin, xmax, ymin, ymax, zmin, zmax, mesh_size)
 	tx = linspace(xmin, xmax, mesh_size(1));
 	ty = linspace(ymin, ymax, mesh_size(2));
     tz = linspace(zmin, zmax, mesh_size(3));
@@ -56,36 +57,20 @@ function [X, Y, Z] = cell2mesh(coord_cellgrid)
 end % cell2mesh
 
 function ret = subcell(cell_3d, mode)
-    cell_size = size(subcell);
+    cell_size = size(cell_3d);
     lx = cell_size(1);
     ly = cell_size(2);
     lz = cell_size(3);
-    if mode == 1 % first index fixed
-        subcells = cell(lx, 1);
-        for i = range(lx)
-            % generate a new cell array
-            new_cell = cell(ly, lz);
-            
-            for j = range(ly)
-                for k = range(lz)
-                    % copy elements to the new cell array
-                    new_cell{j, k} = cell_3d{i, j, k};
-                end
-            end
-            
-            % append the new cell array to the list of cell arrays
-            subcells{i} = new_cell;
-        end
+    if mode == 1 % first index fixed 
         
-        ret = subcells;
-    elseif mode == 2 % second index fixed
+        % It's important to note the ordering
         subcells = cell(ly, 1);
-        for i = range(ly)
+        for i = 1 : ly
             % generate a new cell array
             new_cell = cell(lz, lx);
             
-            for j = range(lz)
-                for k = range(lx)
+            for j = 1 : lz
+                for k = 1 : lx
                     % copy elements to the new cell array
                     new_cell{j, k} = cell_3d{k, i, j};
                 end
@@ -95,16 +80,35 @@ function ret = subcell(cell_3d, mode)
             subcells{i} = new_cell;
         end
         
-        ret = subcells;
+        ret = subcells;        
+
+    elseif mode == 2 % second index fixed
+        
+        subcells = cell(lx, 1);
+        for i = 1 : lx
+            % generate a new cell array
+            new_cell = cell(ly, lz);
+            
+            for j = 1 : ly
+                for k = 1 : lz
+                    % copy elements to the new cell array
+                    new_cell{j, k} = cell_3d{i, j, k};
+                end
+            end
+            
+            % append the new cell array to the list of cell arrays
+            subcells{i} = new_cell;
+        end
+        ret = subcells;      
         
     elseif mode == 3 % third index fixed
         subcells = cell(lz, 1);
-        for i = range(lz)
+        for i = 1 : lz
             % generate a new cell array
             new_cell = cell(lx, ly);
             
-            for j = range(lx)
-                for k = range(ly)
+            for j = 1 : lx
+                for k = 1 : ly
                     % copy elements to the new cell array
                     new_cell{j, k} = cell_3d{j, k, i};
                 end
@@ -114,11 +118,12 @@ function ret = subcell(cell_3d, mode)
             subcells{i} = new_cell;
         end
         
-        ret = subcells;    
+        ret = subcells;
     
     else
         fprintf('Invalid Mode');
         ret = 0;
     end
-    
+end % subcell
+
 end % testing
