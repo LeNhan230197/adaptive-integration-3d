@@ -3,7 +3,7 @@
 
 function [] = testing()
 
-[X, Y, Z] = coord_meshgrid(0, 1, 0, 1, 0, 1, [10, 10, 10]);
+[X, Y, Z] = coord_meshgrid(0, 1, 0, 1, 0, 1, [2, 3, 4]);
 % display(X);
 % display(Y);
 % display(Z);
@@ -17,7 +17,7 @@ assert(isequal(X, nX));
 assert(isequal(Y, nY));
 assert(isequal(Z, nZ));
 
-d2cells = subcell(cells,1);
+d2cells = subcell(cells,3);
 
 display(d2cells);
 

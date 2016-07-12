@@ -18,7 +18,7 @@ tic;
 % refer to f.m for more information. The function returns a list of vectors
 % and a list of values corresponding to the vectors. These should be enough
 % to get an integral value
-[keys, vals] = adaptive_search(@f, xmin, xmax, ymin, ymax, zmin, zmax, mesh_size, n_recursion_max);
+[keys, vals] = adaptive_search_3d(@f, xmin, xmax, ymin, ymax, zmin, zmax, mesh_size, n_recursion_max);
 combined_data = [keys, vals];
 
 toc;
