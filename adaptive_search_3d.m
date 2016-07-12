@@ -7,10 +7,10 @@ function [ret_keys, ret_vals] = adaptive_search_3d(f, xmin, xmax, ymin, ymax, zm
 
 % Cached version of target function (a variation from adaptive V0.1 script)
 function ret = f_cached(x, y, z, val, MODE)
-	% Specify cache look up precision
-	PRECISION = 6;
+    % Specify cache look up precision
+    PRECISION = 6;
 	
-	persistent cache;
+    persistent cache;
     
     if isempty(cache)
         cache = containers.Map;
@@ -24,8 +24,6 @@ function ret = f_cached(x, y, z, val, MODE)
 	% Used when first calculating all points
 	if MODE == 0
 		% Check if key exists in cache
-        % Update in V0.4: isfield -> isKey
-        %     cache.(cache_key) -> cache(cache_key)
         if cache.isKey(cache_key) == 0
 			% Calculate and store if key doesn't exist
 			fval = f(x, y, z);
@@ -36,7 +34,7 @@ function ret = f_cached(x, y, z, val, MODE)
 			%fprintf('Something is wrong');
         end
         
-		ret = fval;
+	ret = fval;
         
 	% Mode: 1 -> RETRIEVE MODE
 	% Used within checker function
@@ -143,13 +141,11 @@ function [X, Y, Z] = coord_meshgrid3D(xmin, xmax, ymin, ymax, zmin, zmax, mesh_s
 	[X, Y, Z] = meshgrid(tx, ty, tz);
 end % coord_meshgrid
 
-
 % Function to convert meshgrid of coordinates to cellgrid of coordinates
 function coord_cellgrid = mesh2cell3D(X, Y, Z)
 	mapper = @(x, y, z) [x y z]; % Mapper function to convert coords to vector 
 	coord_cellgrid = arrayfun(mapper, X, Y, Z, 'un', 0); 
 end
-
 
 % Function to convert cellgrid of coordinates to meshgrid of coordinates
 function [X, Y, Z] = cell2mesh3D(coord_cellgrid)
@@ -174,11 +170,81 @@ function [X, Y, Z] = cell2mesh3D(coord_cellgrid)
     Z = permute(arrayfun(inverse_mapper_z, tA, tB, tC),[2,1,3]); 
 end % cell2mesh
 
+% Function subcell returns a cell array of subcells (2D) which are obtained
+% from a cell array (3D)
+function ret = subcell(cell_3d, mode)
+    cell_size = size(cell_3d);
+    lx = cell_size(1);
+    ly = cell_size(2);
+    lz = cell_size(3);
+    if mode == 1 % first index fixed 
+        
+        % It's important to note the ordering
+        subcells = cell(ly, 1);
+        for i = 1 : ly
+            % generate a new cell array
+            new_cell = cell(lz, lx);
+            
+            for j = 1 : lz
+                for k = 1 : lx
+                    % copy elements to the new cell array
+                    new_cell{j, k} = cell_3d{k, i, j};
+                end
+            end
+            
+            % append the new cell array to the list of cell arrays
+            subcells{i} = new_cell;
+        end
+        
+        ret = subcells;        
+
+    elseif mode == 2 % second index fixed
+        
+        subcells = cell(lx, 1);
+        for i = 1 : lx
+            % generate a new cell array
+            new_cell = cell(ly, lz);
+            
+            for j = 1 : ly
+                for k = 1 : lz
+                    % copy elements to the new cell array
+                    new_cell{j, k} = cell_3d{i, j, k};
+                end
+            end
+            
+            % append the new cell array to the list of cell arrays
+            subcells{i} = new_cell;
+        end
+        ret = subcells;      
+        
+    elseif mode == 3 % third index fixed
+        subcells = cell(lz, 1);
+        for i = 1 : lz
+            % generate a new cell array
+            new_cell = cell(lx, ly);
+            
+            for j = 1 : lx
+                for k = 1 : ly
+                    % copy elements to the new cell array
+                    new_cell{j, k} = cell_3d{j, k, i};
+                end
+            end
+            
+            % append the new cell array to the list of cell arrays
+            subcells{i} = new_cell;
+        end
+        
+        ret = subcells;
+    
+    else
+        fprintf('Invalid Mode');
+        ret = 0;
+    end
+end % subcell
+
 
 % Checker function, implement four points checking algorithm here
 % return true if finds a special region of interest and false otherwise
-% Important: in V0.2 the checker function also handles NaN. 
-% Any NaN comparison returns false by construct
 function ret = checker(x1, x2, x3, x4)
 	% Define threshold of checker function
 	THRESHOLD = 0.3;
@@ -210,21 +276,23 @@ function ret = t_adaptive_search_2D(fun, coord_cellgrid, MAX_RECURSION)
 	%		true if all points pass the checker function
 	
 	% Initialize empty array for future return
-	ret = [];
-	
-	% DEBUG
-	% fprintf('-> Running Iteration %d \n', n_recursion);
+	ret = []; % TODO: initialize for speed
 	
 	% Get the mesh_size
 	t_mesh_size = size(coord_cellgrid);
-	
-	% Convert cellgrid to meshgrid
-	[tX, tY] = cell2mesh(coord_cellgrid);
-	
-	% Get function values on meshgrid by retrieve them from the cache
-	% Important: return value will be NaN if (x y) don't exist in cache
-	fvals = arrayfun(@(x, y) fun(x, y, 0, 1), tX, tY);	
 
+    % Calculate each point and store them in cache
+    fvals = zeros(t_mesh_size(1), t_mesh_size(2));
+    for i = 1 : t_mesh_size(1)
+        for j = 1 : t_mesh_size(2)
+            params = coord_cellgrid{i, j};
+            % The point could have been calculated before, hence we use mode 0
+            fval = f_cached(params(1), params(2), params(3), 0, 0);
+            fvals(i, j) = fval;
+            
+        end
+    end
+    
 	% A counter used to keep track of the index of the box of interests
 	counter = 1;
 	
@@ -250,18 +318,16 @@ function ret = t_adaptive_search_2D(fun, coord_cellgrid, MAX_RECURSION)
 			% When a special region is identified
 			% Important: the parameters contain NaN sometimes	
 			if checker(f1, f2, f3, f4) == true				
-
-				
-				% Save the function value for x0 in cache
+				% Calculate and save the function value for x0 in cache
 				% No return is necessary
-				fun(x0(1), x0(2), 0, 0);
+				f_cached(x0(1), x0(2), x0(3), 0, 0);
 				
 			% If no special region is identified, save the average value of the
 			% four courners as the value
 			else
 				fs = [f1, f2, f3, f4];
 				favg = mean(fs(~isnan(fs))); % This is to ensure no NaN
-				fun(x0(1), x0(2), favg, 3);
+				f_cached(x0(1), x0(2), favg, 3);
 			end
 			
 			% No matter what happens, always include the new boxes
@@ -278,8 +344,6 @@ function ret = t_adaptive_search_2D(fun, coord_cellgrid, MAX_RECURSION)
 		end
 	end
 	
-	% Scripts that are included in V0.7
-	% to change recursion to loops
 	new_box_of_interests = box_of_interests(:,:); 	% Make sure it copies instead
 													% of pointing to the same val.
 	n_recursion = 0;
@@ -303,11 +367,8 @@ function ret = t_adaptive_search_2D(fun, coord_cellgrid, MAX_RECURSION)
 			x3 = box_of_interests{n, 4};
 			x4 = box_of_interests{n, 5};
             % Proceed only if all the points are in the interested region
-            
 			
 			% Get a new_coord_cellgrid of a 3x3 mesh
-			% Update in V0.5: Identify a mistake in calculating the new points
-			% based on the old points. Now this part has been fixed
 			new_coord_cellgrid{1, 1} = x0 + (x1 - x0) + (x2 - x0);
 			new_coord_cellgrid{1, 2} = x2;
 			new_coord_cellgrid{1, 3} = x0 + (x2 - x0) + (x3 - x0);
@@ -319,33 +380,37 @@ function ret = t_adaptive_search_2D(fun, coord_cellgrid, MAX_RECURSION)
 			new_coord_cellgrid{3, 3} = x0 + (x3 - x0) + (x4 - x0);
 	
 			% New section
-			% Get the mesh_size
-			mesh_size_new = size(new_coord_cellgrid);
+			
+			fvals = zeros(3, 3);
+			for i = 1 : 3
+				for j = 1 : 3
+					x = new_coord_cellgrid{i, j}
+					
+					% Many points should have already been calculated
+					fval = f_cached(x(1), x(2), x(3), 0, 1);
+					
+					fvals(i, j) = fval;
+				end
+			end
 
-			% Convert cellgrid to meshgrid
-			[tX, tY] = cell2mesh(new_coord_cellgrid);
-
-			% Get function values on meshgrid by retrieve them from the cache
-			% Important: return value will be NaN if (x y) don't exist in cache
-			fvals = arrayfun(@(x, y) fun(x, y, 0, 1), tX, tY);	
-
-			for m = 1 : mesh_size_new(1) - 1
-				for j = 1 : mesh_size_new(2) - 1
+			for i = 1 : 3 - 1
+				for j = 1 : 3 - 1
 					% fprintf('-> now calculating %d, %d \n', i, j); # DEBUG
 					% Four values to send to checker function (clockwise)
-					f1 = fvals(m, j);
-					f2 = fvals(m, j+1);
-					f3 = fvals(m+1, j+1);
-					f4 = fvals(m+1, j);
+					f1 = fvals(i, j);
+					f2 = fvals(i, j+1);
+					f3 = fvals(i+1, j+1);
+					f4 = fvals(i+1, j);
 			
 					% When a special region is identified
 					% Important: the parameters contain NaN sometimes	
 					
 					% Get the coordinates of the 2x2 mesh (clockwise)
-					x1 = new_coord_cellgrid{m, j};
-					x2 = new_coord_cellgrid{m, j+1};
-					x3 = new_coord_cellgrid{m+1, j+1};
-					x4 = new_coord_cellgrid{m+1, j};
+					x1 = new_coord_cellgrid{i, j};
+					x2 = new_coord_cellgrid{i, j+1};
+					x3 = new_coord_cellgrid{i+1, j+1};
+					x4 = new_coord_cellgrid{i+1, j};
+					
                     % Get the coordinates of new points based on the center point
                     x0 = (x1 + x2 + x3 + x4) / 4; % Equivalent to x1 + x3 / 2
 
@@ -356,14 +421,14 @@ function ret = t_adaptive_search_2D(fun, coord_cellgrid, MAX_RECURSION)
                     %if min(x1) < 0 || max(x1) > 1 || min(x2) < 0 || max(x2) > 1 || min(x3) < 0 || max(x3) > 1 || min(x4) < 0 || max(x4) > 1 
                         % do nothing
                     %else
-						if checker(f1, f2, f3, f4) == true
+					if checker(f1, f2, f3, f4) == true
 				
-							% Mark the flag
-							is_clean = false;
-		                    
-	                        % Save the function value for x0 in cache
-	                        % No return is necessary
-	                        fun(x0(1), x0(2), 0, 0);
+						% Mark the flag
+						is_clean = false;
+						
+						% Calculate and save the function value for x0 in cache
+						% No return is necessary
+						fun(x0(1), x0(2), x(3), 0, 0);
 					
 						% If a region is not of interests, use the average value to represent
 						% the center point
@@ -396,17 +461,25 @@ function ret = t_adaptive_search_2D(fun, coord_cellgrid, MAX_RECURSION)
     end
 end
 
+
+% ===========================================================================
+% Main algorithm starts here
+
+cell3d = coord_meshgrid3D(xmin, xmax, ymin, ymax, zmin, zmax);
+
 xs = linspace(xmin, xmax, mesh_size(1));
 ys = linspace(ymin, ymax, mesh_size(2));
 zs = linspace(zmin, zmax, mesh_size(3));
 
 % 1 - Start to search along z axis for each surface using 2d search
-for i = range(length(zs))
+cell2ds = subcell(cell3d, 3);
+
+for i = 1 : length(zs)
     z = zs(i);
-    new_size = [mesh_size(1), mesh_size(2)];
+    cell2d = cell2ds{i};
     
     % Call old fnction in 2d with recursion limit set to 2
-    [keys, vals] = adaptive_search(@(x, y) f(x, y, z), xmin, xmax, ymin, ymax, new_size, 2);
+    [keys, vals] = t_adaptive_search_2D(@(x, y) f_cached(x, y, z), cell2d, 2);
     
     % Save the keys in the cache
     for j = range(keys)

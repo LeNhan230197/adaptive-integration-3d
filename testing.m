@@ -56,6 +56,7 @@ function [X, Y, Z] = cell2mesh(coord_cellgrid)
     Z = permute(arrayfun(inverse_mapper_z, tA, tB, tC),[2,1,3]); 
 end % cell2mesh
 
+
 function ret = subcell(cell_3d, mode)
     cell_size = size(cell_3d);
     lx = cell_size(1);
